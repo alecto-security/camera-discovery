@@ -173,8 +173,9 @@ placed in the document; it contributes only to the ONVIF password digest.
   It does not redact query parameters or other secret material.
 - `inject_if_rtsp` inserts `user:pass@` verbatim into an RTSP URI that has no
   `@`. It does not percent-encode. Empty username and password are a no-op.
-- `host_from_url` and `port_from_url` are helpers for the
-  `http://host:port/path` shape of ONVIF XAddrs, not general URL parsers.
+- `host_from_url` and `port_from_url` do not strip userinfo and do not
+  understand IPv6 literals. They are helpers for the ONVIF XAddr shape, not
+  general URL parsers.
 - `rtsp_time_token` keeps ASCII digits, `T` and `Z`. It is not a validator.
 - `with_rtsp_wall_clock_range` discards any existing query.
 - `format_nvr_export_url` substitutes `{start}` and `{end}` in a template.
@@ -213,8 +214,8 @@ These are properties of 0.1.0, stated plainly.
   not namespace-aware, uses the first matching element, and does not resolve
   entities. Malformed, nested or hostile documents can be ignored or
   misreported.
-- Only the first ProbeMatch payload's fields are read; multiple devices in one
-  datagram are not enumerated.
+- Only the first matching `XAddrs`, `Scopes` and `Types` elements are read;
+  multiple ProbeMatch entries in one datagram are not enumerated.
 - Duplicate responses appear as duplicate entries. There is no deduplication,
   sorting or stable device identity.
 - `--network` filters on the advertised XAddr. A device advertising a hostname,
