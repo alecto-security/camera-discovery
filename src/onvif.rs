@@ -84,8 +84,11 @@ pub struct ResolvedSource {
 /// excluded by a filter. The filter is applied after the probe is received;
 /// it does not narrow the multicast scope.
 ///
-/// Discovery sends no credentials. Responses are not authenticated, so a host
-/// on the network can claim any XAddr, scope or type it likes.
+/// Discovery sends no credentials. Responses are not authenticated and are not
+/// correlated to this probe's message id: any ProbeMatch seen during the window
+/// is reported, so a host on the network can claim any XAddr, scope or type it
+/// likes. A receive timeout completes the scan; any other socket error is
+/// returned as an error rather than being reported as an empty result.
 pub async fn discover(network: Option<&str>, wait: Duration) -> Result<Vec<DiscoveredDevice>> {
     // Validate before sending: a typo must not put traffic on the wire.
     let subnet: Option<Ipv4Net> = network
@@ -101,7 +104,11 @@ pub async fn discover(network: Option<&str>, wait: Duration) -> Result<Vec<Disco
     socket.send_to(probe.as_bytes(), WS_DISCOVERY_ADDR).await?;
 
     let mut devices = Vec::new();
-    let deadline = tokio::time::Instant::now() + wait;
+    let started = tokio::time::Instant::now();
+    // Saturate absurd waits rather than panicking on an overflowing deadline.
+    let deadline = started
+        .checked_add(wait)
+        .unwrap_or_else(|| started + Duration::from_secs(365 * 24 * 60 * 60));
     let mut buf = vec![0u8; MAX_DATAGRAM];
     loop {
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
@@ -119,7 +126,10 @@ pub async fn discover(network: Option<&str>, wait: Duration) -> Result<Vec<Disco
                     devices.push(dev);
                 }
             }
-            _ => break,
+            // No response before the deadline: the scan is complete.
+            Err(_) => break,
+            // A real socket failure is not "no devices found".
+            Ok(Err(err)) => return Err(err.into()),
         }
     }
     Ok(devices)
@@ -164,6 +174,8 @@ pub fn with_rtsp_wall_clock_range(uri: &str, start_utc: &str, end_utc: &str) -> 
 /// RTSP sources. Treat it as a secret. The device is contacted over the
 /// `http://` endpoint built by [`CameraConfig::device_url`]; ONVIF's password
 /// digest protects the password value but does not encrypt the conversation.
+/// Redirects and environment proxies are disabled; response bodies are capped
+/// at 4 MiB. Service XAddrs returned by the device are followed as-is.
 pub async fn resolve(
     camera: &CameraConfig<'_>,
     start_utc: &str,

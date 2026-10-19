@@ -2,7 +2,7 @@
 name = "alecto-discovery"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.89"
 license = "Apache-2.0"
 description = "ONVIF WS-Discovery scanner and read-only ONVIF source resolver for cameras and NVRs"
 repository = "https://github.com/alecto-security/camera-discovery"

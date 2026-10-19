@@ -15,7 +15,8 @@ third-party networks without authorization will not be merged.
 
 ## Setup
 
-Rust stable is the only requirement.
+Rust 1.89 or newer is the declared minimum; CI also tests stable. No other
+dependency is required.
 
 ```bash
 cargo test

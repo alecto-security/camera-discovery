@@ -26,11 +26,16 @@ classes of bug matter most:
 
 ## Known limitations (not vulnerabilities)
 
-- Discovery responses are unauthenticated. Any host on the local network can
-  claim any XAddr, scope or type. The tool reports leads, not verified
-  inventory.
+- Discovery responses are unauthenticated and are not correlated to the
+  probe. Any host on the local network can claim any XAddr, scope or type. The
+  tool reports leads, not verified inventory.
 - ONVIF requests use plain HTTP and password digest. The digest does not
   encrypt the conversation. Use the resolver only on networks you trust.
+- Resolution follows service XAddrs supplied by the device. A malicious device
+  can point credential-bearing requests at another host. Redirects and
+  environment proxies are disabled, but the XAddr is not pinned to the device.
+- Response bodies above 4 MiB are rejected to bound memory. This is a
+  deliberate limit, not a parsing failure.
 - The XML reader is intentionally minimal and not namespace-aware. It is
   documented in [docs/SPEC.md](docs/SPEC.md) section 6.
 - There is no device-count cap or rate limit during discovery. A hostile local

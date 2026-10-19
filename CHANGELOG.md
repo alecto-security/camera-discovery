@@ -18,10 +18,12 @@ Born public, born tagged.
   URL/time helpers, and read-only ONVIF source resolution (`resolve`).
 - XML escaping for the SOAP username and media profile token.
 - Validation of `--network` before any packet is sent.
+- SOAP client hardening: redirects and environment proxies disabled, response
+  bodies capped at 4 MiB, and non-timeout socket errors reported as errors.
 - Unit, integration and CLI tests for parsing, output shape, helper behavior,
-  invalid input and exit codes.
-- CI: format, clippy `-D warnings`, tests, and a standalone `cargo package`
-  check.
+  invalid input, response caps and exit codes.
+- CI: format, clippy `-D warnings`, tests, a standalone `cargo package` check,
+  and an MSRV check on Rust 1.89.
 
 ### Known limits
 

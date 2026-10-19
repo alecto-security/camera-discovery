@@ -11,7 +11,7 @@ spreadsheet archaeology.
 <p align="center">
   <a href="https://github.com/alecto-security/camera-discovery/actions/workflows/ci.yml"><img src="https://github.com/alecto-security/camera-discovery/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
-  <img src="https://img.shields.io/badge/rust-1.75%2B-orange.svg" alt="Rust 1.75+">
+  <img src="https://img.shields.io/badge/rust-1.89%2B-orange.svg" alt="Rust 1.89+">
 </p>
 
 ## Quickstart
@@ -98,8 +98,13 @@ crates.io, so the import name carries the vendor prefix.
 
 - IPv4 only. No IPv6 multicast, no unicast sweep, no ONVIF port scan.
 - One probe, one timeout. Packet loss and slow responders are not retried.
+- Responses are not correlated to the probe's message id. Any ProbeMatch seen
+  during the window is reported, and any local host can spoof one.
+- Devices that do not answer as `NetworkVideoTransmitter` are missed, including
+  some NVRs that only advertise a device service.
 - Responses are unauthenticated and unverified. Treat the output as leads,
   not as an inventory of record.
+- The OS chooses the egress interface; there is no `--interface` option.
 - The XML reader is deliberately small and not namespace-aware; malformed or
   hostile documents can be ignored or misreported.
 - Duplicate responses are reported as separate entries.
@@ -108,6 +113,11 @@ crates.io, so the import name carries the vendor prefix.
 - ONVIF resolution uses plain HTTP and ONVIF password digest. The password is
   not sent in clear text, but the conversation is not encrypted. Use it only
   on networks you trust.
+- Resolution follows service XAddrs supplied by the device. A malicious device
+  can point credential-bearing requests at another host. Redirects and
+  environment proxies are disabled, but the device-supplied URL itself is not
+  pinned.
+- ONVIF response bodies are capped at 4 MiB; a larger response fails.
 - No vendor-specific NVR APIs, no stream playback check, no retention or
   replay verification.
 - No rate limiting or result cap. A hostile local host can flood the scan.

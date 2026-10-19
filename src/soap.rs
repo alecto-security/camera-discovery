@@ -7,10 +7,16 @@ use sha1::{Digest, Sha1};
 
 use crate::error::{DiscoveryError, Result};
 
+/// ONVIF responses are small. Cap the body so a hostile or broken device
+/// cannot make the client allocate without bound.
+const MAX_SOAP_RESPONSE: usize = 4 * 1024 * 1024;
+
 /// Minimal ONVIF SOAP client for device, media and replay services.
 ///
 /// The client is read-only: every method builds an ONVIF request that queries
-/// state. It does not expose a generic mutation call.
+/// state. It does not expose a generic mutation call. Per-request timeouts are
+/// 8 seconds; redirects and environment proxies are disabled so credentials
+/// only go to the endpoint the caller named.
 pub struct SoapClient {
     http: reqwest::Client,
 }
@@ -20,13 +26,15 @@ impl SoapClient {
         Ok(Self {
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(8))
+                .redirect(reqwest::redirect::Policy::none())
+                .no_proxy()
                 .build()?,
         })
     }
 
     pub async fn call(&self, url: &str, user: &str, pass: &str, body: &str) -> Result<String> {
         let envelope = soap_envelope(user, pass, body);
-        let resp = self
+        let mut resp = self
             .http
             .post(url)
             .header("Content-Type", "application/soap+xml; charset=utf-8")
@@ -34,7 +42,18 @@ impl SoapClient {
             .send()
             .await?;
         let status = resp.status();
-        let text = resp.text().await?;
+        if let Some(len) = resp.content_length() {
+            if len > MAX_SOAP_RESPONSE as u64 {
+                return Err(DiscoveryError::fail(format!(
+                    "ONVIF response from {url} is larger than {MAX_SOAP_RESPONSE} bytes"
+                )));
+            }
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = resp.chunk().await? {
+            extend_capped(&mut bytes, &chunk, MAX_SOAP_RESPONSE)?;
+        }
+        let text = String::from_utf8_lossy(&bytes).into_owned();
         if !status.is_success() {
             return Err(DiscoveryError::fail(format!(
                 "ONVIF {url} HTTP {status}: {text}"
@@ -183,6 +202,16 @@ fn xml_escape(value: &str) -> String {
     out
 }
 
+fn extend_capped(body: &mut Vec<u8>, chunk: &[u8], max: usize) -> Result<()> {
+    if body.len().saturating_add(chunk.len()) > max {
+        return Err(DiscoveryError::fail(format!(
+            "ONVIF response is larger than {max} bytes"
+        )));
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,5 +230,15 @@ mod tests {
         assert!(envelope.contains("<wsse:Username>svc&lt;&amp;</wsse:Username>"));
         assert!(!envelope.contains("p<&"));
         assert!(envelope.contains("<s:Body><Body/></s:Body>"));
+    }
+
+    #[test]
+    fn response_body_is_capped() {
+        let mut body = Vec::new();
+        extend_capped(&mut body, b"abc", 4).expect("fits");
+        assert_eq!(body, b"abc");
+        extend_capped(&mut body, b"d", 4).expect("fits exactly");
+        let err = extend_capped(&mut body, b"e", 4).expect_err("over cap");
+        assert!(err.to_string().contains("larger than 4 bytes"));
     }
 }

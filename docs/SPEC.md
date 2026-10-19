@@ -39,13 +39,18 @@ APIs, credential testing, stream validation, persistence, and a GUI.
 9. With `--network`, a response is kept only when at least one XAddr host
    parses as an IPv4 address inside the CIDR. The filter is applied after the
    response arrives. A device with no such XAddr is dropped.
-10. Responses are appended in arrival order. The scanner does not deduplicate,
-    rank, authenticate or verify them.
-11. A receive timeout ends the scan successfully. Other receive errors also end
-    the scan; results collected so far are returned.
+10. Responses are appended in arrival order. The scanner does not correlate
+    `RelatesTo` to the probe's message id, deduplicate, rank, authenticate or
+    verify them.
+11. A receive timeout ends the scan successfully; results collected so far are
+    returned. Any other socket error is returned as an error, not as an empty
+    result.
+12. The operating system chooses the egress interface. There is no interface
+    selection option.
 
 The scanner does not use WS-Discovery Hello, Bye, Resolve or metadata
-exchange, and does not retry a lost Probe.
+exchange, and does not retry a lost Probe. A device that answers only as a
+device service and not as `NetworkVideoTransmitter` is not discovered.
 
 ## 3. Command-line contract
 
@@ -158,7 +163,14 @@ pub async fn resolve(
 
 The HTTP client timeout is 8 seconds per request. The device endpoint is
 `http://{host}:{port}/onvif/device_service`; TLS is not used by
-`CameraConfig::device_url`.
+`CameraConfig::device_url`. The client does not follow redirects and ignores
+environment proxy variables. Response bodies are capped at 4 MiB; a larger
+response fails the call.
+
+`resolve` follows service XAddrs returned by the device. A malicious device
+can therefore direct credential-bearing SOAP requests at another host. The
+client does not follow HTTP redirects, but it does not pin the returned XAddr
+to the original device either.
 
 `ResolvedSource::stream_uri_auth` contains credentials for RTSP sources.
 `ResolvedSource::stream_uri_redacted` replaces the userinfo with `***`.
@@ -191,8 +203,9 @@ placed in the document; it contributes only to the ONVIF password digest.
 3. **No source writes.** There is no filesystem writer in the crate. Reports
    go to stdout or to the caller's own sink.
 4. **No hidden network calls.** The only destinations are the fixed
-   WS-Discovery multicast group and the device endpoints derived from the
-   supplied host or from device responses during resolution.
+   WS-Discovery multicast group, the device endpoint derived from the supplied
+   host, and service XAddrs returned by that device during resolution.
+   Redirects and environment proxies are disabled.
 5. **Explicit trust boundary.** Discovery output is unauthenticated. The tool
    MUST NOT present it as verified inventory.
 
@@ -207,6 +220,12 @@ These are properties of 0.1.0, stated plainly.
   forwards `239.255.255.250:3702`. Routed networks, VLAN boundaries and
   Wi-Fi client isolation can hide devices.
 - One Probe and one timeout. A lost Probe or delayed response is missed.
+- Responses are not correlated to the Probe's `RelatesTo`. Another scanner's
+  response, or a stale response, can appear in the result.
+- The OS picks the egress interface. Hosts with multiple interfaces, VPNs or
+  unusual routes may need OS-level routing to reach the intended LAN.
+- Devices that answer only as a device service, including some NVRs that do
+  not advertise `NetworkVideoTransmitter`, are not discovered.
 - The receive buffer is the maximum UDP payload (65,507 bytes). A datagram
   cannot be larger, so this is not a truncation limit, but a device that
   fragments at the IP layer may still be lost.
@@ -240,6 +259,12 @@ These are properties of 0.1.0, stated plainly.
 - Requests go over plain HTTP to the device service. The ONVIF password digest
   is not transport encryption. A network observer can see usernames,
   responses and RTSP URIs.
+- Service XAddrs come from the device. A malicious device can point
+  credential-bearing requests at another host. HTTP redirects and environment
+  proxies are disabled, but the XAddr itself is not pinned to the original
+  device.
+- A response body larger than 4 MiB is rejected. Real ONVIF responses are far
+  smaller; this cap exists to bound memory on a hostile response.
 - Credentials are inserted into the RTSP URI without percent-encoding.
   Reserved characters in a username or password can produce an invalid URI.
 - The authenticated URI is held in memory as a normal `String`. There is no
@@ -268,13 +293,16 @@ CI runs on stable Rust with:
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-cargo package
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked --all-targets
+cargo package --locked
 ```
+
+A second job runs `cargo check --locked --all-targets` on the declared MSRV,
+Rust 1.89.
 
 The tests cover ProbeMatch parsing (including namespaced and malformed input),
 URL and time helpers, credential injection and redaction, the exact text and
-JSON report shapes, rejection of an invalid CIDR before network activity, and
-the CLI help/version/error paths. CI does not require a live camera or a
-multicast route.
+JSON report shapes, rejection of an invalid CIDR before network activity, the
+capped SOAP body reader, and the CLI help/version/error paths. CI does not
+require a live camera or a multicast route.

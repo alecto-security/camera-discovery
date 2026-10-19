@@ -25,10 +25,21 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --all-targets
+        run: cargo test --locked --all-targets
 
       - name: Standalone package
-        run: cargo package
+        run: cargo package --locked
+
+  msrv:
+    name: MSRV 1.89
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.89
+
+      - name: Check on the declared minimum
+        run: cargo check --locked --all-targets
