@@ -1,0 +1,40 @@
+[package]
+name = "alecto-discovery"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "Apache-2.0"
+description = "ONVIF WS-Discovery scanner and read-only ONVIF source resolver for cameras and NVRs"
+repository = "https://github.com/alecto-security/camera-discovery"
+homepage = "https://github.com/alecto-security/camera-discovery"
+documentation = "https://docs.rs/alecto-discovery"
+readme = "README.md"
+keywords = ["onvif", "ws-discovery", "camera", "nvr", "rtsp"]
+categories = ["command-line-utilities", "network-programming"]
+publish = true
+
+[lib]
+name = "alecto_discovery"
+path = "src/lib.rs"
+
+[[bin]]
+name = "camera-discovery"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ipnet = "2"
+uuid = { version = "1", features = ["v7"] }
+base64 = "0.22"
+rand = "0.8"
+sha1 = "0.10"
+thiserror = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["net", "time", "rt-multi-thread", "macros"] }
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+strip = true
+lto = "thin"
