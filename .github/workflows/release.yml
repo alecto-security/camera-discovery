@@ -65,6 +65,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      # ring (pulled in by reqwest's rustls) compiles C against the target
+      # libc: musl targets need a musl toolchain, which the plain runners
+      # lack. cross provides the right toolchain per target.
+      - uses: taiki-e/install-action@v2
+        if: contains(matrix.target, 'musl')
+        with:
+          tool: cross
       - name: Resolve release version
         shell: bash
         run: |
@@ -80,7 +87,12 @@ jobs:
             echo "STAGE=camera-discovery-$version-${{ matrix.target }}"
           } >> "$GITHUB_ENV"
       - name: Build
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          builder="cargo"
+          case "$TARGET" in *musl*) builder="cross" ;; esac
+          "$builder" build --release --locked --target "$TARGET"
       - name: Package (unix)
         if: runner.os != 'Windows'
         shell: bash
