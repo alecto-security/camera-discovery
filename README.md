@@ -16,6 +16,19 @@ spreadsheet archaeology.
 
 ## Quickstart
 
+Prebuilt binaries are published per tag in Releases: download the asset for
+your platform, check it against `sha256sums.txt`, and run it. Linux builds
+are static (musl); Windows ships `camera-discovery.exe` inside a `.zip`. No
+Rust toolchain needed.
+
+```console
+$ sha256sum -c sha256sums.txt
+$ tar -xzf camera-discovery-v0.1.0-x86_64-unknown-linux-musl.tar.gz
+$ ./camera-discovery-v0.1.0-x86_64-unknown-linux-musl/camera-discovery --timeout 5
+```
+
+Or build from source:
+
 ```bash
 cargo install --path .
 camera-discovery --timeout 5
