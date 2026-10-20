@@ -172,7 +172,7 @@ jobs:
           echo "pass: shipped binary reports ${VERSION#v}"
           help_out=$("/tmp/$stage/camera-discovery" --help)
           for flag in --network --timeout --json; do
-            echo "$help_out" | grep -F "$flag" > /dev/null \
+            echo "$help_out" | grep -F -e "$flag" > /dev/null \
               || { echo "::error::shipped binary --help is missing $flag"; exit 1; }
           done
           echo "pass: the CLI contract flags are listed"
