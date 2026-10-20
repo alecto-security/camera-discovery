@@ -5,6 +5,17 @@ SemVer; the output contract is described in [docs/SPEC.md](docs/SPEC.md).
 
 ## [Unreleased]
 
+### Added
+
+- Release workflow: a `vX.Y.Z` tag (or `workflow_dispatch` against an
+  existing tag, including `v0.1.0`, which was cut before this workflow
+  existed) builds `camera-discovery` for Linux x86_64 and aarch64 (static
+  musl), macOS x86_64 and aarch64, and Windows x86_64, gates on clippy and
+  the test suite, smoke-tests the shipped Linux binary's CLI contract, and
+  publishes the archives with a `sha256sums.txt` as release assets. Running
+  the scanner needs no Rust toolchain.
+- README quickstart for the prebuilt binaries.
+
 ## [0.1.0] - 2026-10-19
 
 Born public, born tagged.
